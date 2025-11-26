@@ -14,7 +14,8 @@ authors = [
 ]
 dependencies = [
     "clemcore>=3.3.2,<4.0.0",
-    "datasets~=3.5.1" # to load playpen-data
+    "datasets~=3.5.1", # to load playpen-data
+    "pettingzoo~=1.25.0"
 ]
 
 [project.optional-dependencies]
@@ -23,6 +24,9 @@ trl = [
     "transformers==4.55.2", # fix version for clemcore[huggingface] compatibility
     "trl==0.21.0", # accelerate>=1.4.0 transformers>=4.55.0 dataset>=3.0.0
     "peft==0.17.0" # supports LoRA for most MoE model including LLama4 family
+]
+rllib = [
+    "ray[rllib]==2.49.2"
 ]
 
 [project.scripts]
