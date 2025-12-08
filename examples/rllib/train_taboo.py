@@ -1,3 +1,4 @@
+import torch
 from ray.rllib.core.rl_module import RLModuleSpec
 from ray.rllib.env import PettingZooEnv
 from ray.rllib.examples.algorithms.classes.vpg import VPGConfig
@@ -5,7 +6,6 @@ from ray.rllib.examples.rl_modules.classes.vpg_torch_rlm import VPGTorchRLModule
 from ray.tune import register_env
 from ray.util.annotations import RayDeprecationWarning
 from ray.rllib.core.columns import Columns
-import torch
 import warnings
 
 from playpen.adapters import pettingzoo
@@ -14,34 +14,32 @@ warnings.filterwarnings("ignore", category=RayDeprecationWarning)
 
 register_env("taboo", lambda _: PettingZooEnv(pettingzoo.env("taboo", single_pass=False)))
 
+# todo: set the vocab_size in the env based on the loaded model (which is only loaded during module setup)
 
 class TabooRLModule(VPGTorchRLModule):
 
     def setup(self):
+        # Initialize a huggingface model
+        # Note: We cannot use clem/backends because that only considers inference use cases
+        self.model = None
+
+        act_space = self.config.action_space
+        self.model.set_gen_args(max_tokens=act_space.max_length, temperature=0.7)
+
         # obs_space['content'] length is 8192
         # obs_space['role'] length is 128
         obs_space = self.config.observation_space
-        act_space = self.config.action_space
-
-        # Calculate input dimension for a simple flattened encoder
         input_dim = int(obs_space["role"].max_length + obs_space["content"].max_length)
-        hidden_dim = self.model_config["hidden_dim"]
-        output_dim = act_space.max_length
 
-        self.policy_net = torch.nn.Sequential(
-            torch.nn.Flatten(),
-            torch.nn.Linear(input_dim, hidden_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_dim, output_dim),
-        )
+        # check that the huggingface model supports input_dim
+        assert input_dim <= self.model.config.max_position_embeddings
 
     def _forward(self, batch, **kwargs):
         obs_dict = batch[Columns.OBS]
-        role = obs_dict["role"]  # ignore action-mask
-        content = obs_dict["content"]  # ignore action-mask
-        print(role, content)
-        # todo: needs to be tokenized here
-        action_logits = self.policy_net(role + content)
+        _, response, _ = self.model.generate_response([obs_dict])  # obs_dict has role and content keys
+        token_logits = response["logits"]  # token logits over the vocabulary at each token position
+        log_probs = torch.log_softmax(token_logits, dim=-1)
+
         return {
             Columns.ACTION_DIST_INPUTS: action_logits
         }

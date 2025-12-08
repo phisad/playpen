@@ -97,7 +97,7 @@ class PettingZooGameMasterEnv(AECEnv):
                     "content": spaces.Text(max_length=8192)  # should be enough chars for prompt and context
                 }
             )
-            # the Players should become the action space (I guess)
+            # only a general descriptor of the action space
             self.action_spaces[agent] = spaces.Text(max_length=8192)
             self.terminations[agent] = False
             self.truncations[agent] = False
@@ -139,6 +139,7 @@ class PettingZooGameMasterEnv(AECEnv):
         return self.observation_spaces[agent]
 
     def action_space(self, agent: AgentID):
+        """ Use AEC wrapper to change the action space """
         return self.action_spaces[agent]
 
     def close(self):
